@@ -236,17 +236,17 @@
       become_method: su
       become_user: "{{ node_username }}"
       ansible.builtin.shell: |
-        set timeout -1
-
         spawn bash /tmp/multitoolbox.sh
 
         expect {
           -re "(.*)Pick an option and hit ENTER(.*)" {
             send "2\n"
+            set timeout -1
             exp_continue
           }
           -re "(.*)password for {{ node_username }}(.*)" {
             send "{{ ansible_become_password }}\n"
+            set timeout -1
             exp_continue
           }
           -re "(.*)To access your frontend to Flux enter this in as your url(.*)" {
