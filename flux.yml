@@ -1,0 +1,262 @@
+- name: Install Flux node with UPnP
+  hosts: "*"
+
+  vars_prompt:
+    - name: ansible_become_password
+      prompt: Enter your sudo password
+      private: true
+    - name: node_username
+      prompt: Enter your node username
+      private: false
+    - name: node_password
+      prompt: Enter the password for your node user
+      private: false
+    - name: identity_key
+      prompt: Enter your FluxNode Identity Key from Zelcore
+      private: false
+    - name: collateral_tx_id
+      prompt: Enter your FluxNode Collateral TX ID from Zelcore
+      private: false
+    - name: output_index
+      prompt: Enter your FluxNode Output Index from Zelcore
+      private: false
+    - name: zel_id
+      prompt: Enter your ZEL ID from ZelCore (Apps -> Zel ID (CLICK QR CODE))
+      private: false
+    - name: kadena_address
+      prompt: Enter your Kadena address from Zelcore
+      private: false
+    - name: upnp_gateway
+      prompt: Enter your UPnP Gateway IP (This is your router IP)
+      private: false
+    - name: upnp_port
+      prompt: Enter your UPnP Port (16127, 16137, 16147, 16157, 16167, 16177, 16187, 16197)
+      private: false
+
+  pre_tasks:
+    - name: Check sudo password
+      ansible.builtin.assert:
+        that:
+          - (ansible_become_password is defined) and (ansible_become_password | length > 0)
+        fail_msg: "Sudo password is not entered"
+        success_msg: "Sudo password is entered"
+
+    - name: Check node username
+      ansible.builtin.assert:
+        that:
+          - (node_username is defined) and (node_username | length > 0)
+        fail_msg: "Node username is not entered"
+        success_msg: "Node username is entered"
+
+    - name: Check node password
+      ansible.builtin.assert:
+        that:
+          - (node_password is defined) and (node_password | length > 0)
+        fail_msg: "Node password is not entered"
+        success_msg: "Node password is entered"
+
+    - name: Check identity key
+      ansible.builtin.assert:
+        that:
+          - (identity_key is defined) and (identity_key | length > 0)
+        fail_msg: "Identity key is not entered"
+        success_msg: "Identity key is entered"
+
+    - name: Check collateral TX ID
+      ansible.builtin.assert:
+        that:
+          - (collateral_tx_id is defined) and (collateral_tx_id | length > 0)
+        fail_msg: "Collateral TX ID is not entered"
+        success_msg: "Collateral TX ID is entered"
+
+    - name: Check output index
+      ansible.builtin.assert:
+        that:
+          - (output_index is defined) and (output_index | length > 0)
+        fail_msg: "Output index is not entered"
+        success_msg: "Output index is entered"
+
+    - name: Check ZEL ID
+      ansible.builtin.assert:
+        that:
+          - (zel_id is defined) and (zel_id | length > 0)
+        fail_msg: "ZEL ID is not entered"
+        success_msg: "ZEL ID is entered"
+
+    - name: Check if ZEL ID is correct
+      ansible.builtin.assert:
+        that:
+          - 32 < zel_id | length < 35
+        fail_msg: "ZEL ID is incorrect"
+        success_msg: "ZEL ID is correct"
+
+    - name: Check Kadena address
+      ansible.builtin.assert:
+        that:
+          - (kadena_address is defined) and (kadena_address | length > 0)
+        fail_msg: "Kadena address is not entered"
+        success_msg: "Kadena address is entered"
+
+    - name: Check if Kadena address is valid
+      ansible.builtin.assert:
+        that:
+          - '"k:" in kadena_address and "kadena" not in kadena_address'
+        fail_msg: "Kadena address is not valid"
+        success_msg: "Kadena address is valid"
+
+    - name: Check UPnP Gateway
+      ansible.builtin.assert:
+        that:
+          - (upnp_gateway is defined) and (upnp_gateway | length > 0)
+        fail_msg: "UPnP Gateway is not entered"
+        success_msg: "UPnP Gateway is entered"
+
+    - name: Check UPnP Port
+      ansible.builtin.assert:
+        that:
+          - (upnp_port is defined) and (upnp_port | length > 0)
+        fail_msg: "UPnP Port is not entered"
+        success_msg: "UPnP Port is entered"
+
+  tasks:
+    - name: Update and upgrade
+      become: yes
+      apt:
+        update_cache: yes
+        upgrade: 'yes'
+
+    - name: Install expect module
+      become: yes
+      apt:
+        name: expect
+
+    - name: Install ACL module
+      become: yes
+      apt:
+        name: acl
+
+    - name: Get docker installation script
+      ansible.builtin.uri:
+        url: https://raw.githubusercontent.com/vmvelev/fluxnode-multitool-ansible/master/docker.sh
+        dest: /tmp/docker.sh
+    
+    - name: Install docker
+      become: yes
+      ansible.builtin.shell: |
+        spawn bash /tmp/docker.sh
+
+        expect {
+          -re "(.*)Enter your username(.*)" {
+            send "{{ node_username }}\n"
+            exp_continue
+          }
+          -re "(.*)New password(.*)" {
+            send "{{ node_password }}\n"
+            exp_continue
+          }
+          -re "(.*)Retype new password(.*)" {
+            send "{{ node_password }}\n"
+            exp_continue
+          }
+          -re "(.*)Would you like switch to user account(.*)" {
+            send "Y\n"
+            exp_continue
+          }
+        }
+      # register: ps
+      args:
+        executable: /usr/bin/expect
+
+    # - name: Debug docker installation
+    #   ansible.builtin.debug:
+    #     var: ps
+
+    - name: Get Flux configuration script
+      ansible.builtin.uri:
+        url: https://raw.githubusercontent.com/vmvelev/fluxnode-multitool-ansible/master/config.sh
+        dest: /tmp/config.sh
+
+    - name: Configure installation
+      become: yes
+      become_method: su
+      become_user: "{{ node_username }}"
+      ansible.builtin.shell: |
+        spawn bash /tmp/config.sh
+
+        expect {
+          -re "(.*)Enter your FluxNode Identity Key from Zelcore(.*)" {
+            send "{{ identity_key }}\n"
+            exp_continue
+          }
+          -re "(.*)Enter your FluxNode Collateral TX ID from Zelcore(.*)" {
+            send "{{ collateral_tx_id }}\n"
+            exp_continue
+          }
+          -re "(.*)Enter your FluxNode Output Index from Zelcore(.*)"  {
+            send "{{ output_index }}\n"
+            exp_continue
+          }
+          -re "(.*)Enter your ZEL ID from ZelCore(.*)" {
+            send "{{ zel_id }}\n"
+            exp_continue
+          }
+          -re "(.*)Please enter your Kadena address from Zelcore(.*)" {
+            send "{{ kadena_address }}\n"
+            exp_continue
+          }
+          -re "(.*)Enter your UPnP Gateway IP(.*)" {
+            send "{{ upnp_gateway }}\n"
+            exp_continue
+          }
+          -re "(.*)Enter your FluxOS UPnP Port(.*)" {
+            send "{{ upnp_port }}\n"
+            exp_continue
+          }
+          -re "(.*)password for cumulus(.*)" {
+            send "{{ ansible_become_password }}\n"
+            exp_continue
+          }
+        }
+        sleep 3
+      # register: ps
+      args:
+        executable: /usr/bin/expect
+
+    # - name: Debug config
+    #   ansible.builtin.debug:
+    #     var: ps
+
+    - name: Get multitoolbox script
+      ansible.builtin.uri:
+        url: https://raw.githubusercontent.com/RunOnFlux/fluxnode-multitool/master/multitoolbox.sh
+        dest: /tmp/multitoolbox.sh
+    
+    - name: Install FluxOS
+      become: yes
+      become_method: su
+      become_user: "{{ node_username }}"
+      ansible.builtin.shell: |
+        set timeout -1
+
+        spawn bash /tmp/multitoolbox.sh
+
+        expect {
+          -re "(.*)Pick an option and hit ENTER(.*)" {
+            send "2\n"
+            exp_continue
+          }
+          -re "(.*)password for {{ node_username }}(.*)" {
+            send "{{ ansible_become_password }}\n"
+            exp_continue
+          }
+          -re "(.*)To access your frontend to Flux enter this in as your url(.*)" {
+            exit 0
+          }
+        }
+      # register: ps
+      args:
+        executable: /usr/bin/expect
+
+    # - name: print out
+    #   ansible.builtin.debug:
+    #     var: ps
