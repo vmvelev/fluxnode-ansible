@@ -123,7 +123,7 @@
       become: yes
       apt:
         update_cache: yes
-        upgrade: 'yes'
+        upgrade: "yes"
 
     - name: Install expect module
       become: yes
@@ -137,9 +137,9 @@
 
     - name: Get docker installation script
       ansible.builtin.uri:
-        url: https://raw.githubusercontent.com/vmvelev/fluxnode-multitool-ansible/master/docker.sh
+        url: https://raw.githubusercontent.com/vmvelev/fluxnode-ansible/main/docker.sh
         dest: /tmp/docker.sh
-    
+
     - name: Install docker
       become: yes
       ansible.builtin.shell: |
@@ -173,7 +173,7 @@
 
     - name: Get Flux configuration script
       ansible.builtin.uri:
-        url: https://raw.githubusercontent.com/vmvelev/fluxnode-multitool-ansible/master/config.sh
+        url: https://raw.githubusercontent.com/vmvelev/fluxnode-ansible/main/config.sh
         dest: /tmp/config.sh
 
     - name: Configure installation
@@ -230,7 +230,7 @@
       ansible.builtin.uri:
         url: https://raw.githubusercontent.com/RunOnFlux/fluxnode-multitool/master/multitoolbox.sh
         dest: /tmp/multitoolbox.sh
-    
+
     - name: Install FluxOS
       become: yes
       become_method: su
